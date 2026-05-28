@@ -22,6 +22,10 @@ public class WhatsAppMockService {
     }
 
     private void cargarDatosIniciales() {
+        if (!chats.isEmpty()) {
+            return;
+        }
+
         ArrayList<MessageMockDTO> mensajesCarlos = new ArrayList<>();
         mensajesCarlos.add(new MessageMockDTO("Qué onda bro, ya terminaste la app?", "10:35 p. m.", false, true));
         mensajesCarlos.add(new MessageMockDTO("Sí, ya quedó conectada a la API", "10:38 p. m.", true, true));
@@ -149,19 +153,20 @@ public class WhatsAppMockService {
             return null;
         }
 
-        String time = getCurrentTime();
-
         MessageMockDTO newMessage = new MessageMockDTO(
                 text,
-                time,
+                getCurrentTime(),
                 true,
                 true
         );
 
         chat.getMessages().add(newMessage);
         chat.setLastMessage(text);
-        chat.setTime(time);
+        chat.setTime(newMessage.getTime());
         chat.setUnreadMessages(0);
+
+        System.out.println("Mensaje guardado en chat " + chatId + ": " + text);
+        System.out.println("Total mensajes en chat " + chatId + ": " + chat.getMessages().size());
 
         return newMessage;
     }
@@ -191,7 +196,6 @@ public class WhatsAppMockService {
 
     private String getCurrentTime() {
         LocalTime now = LocalTime.now();
-
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("h:mm");
 
         String hourMinute = now.format(formatter);
