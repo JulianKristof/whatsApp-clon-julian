@@ -7,6 +7,9 @@ public class MessageMockDTO {
     private boolean isMe;
     private boolean isRead;
 
+    public MessageMockDTO() {
+    }
+
     public MessageMockDTO(String text, String time, boolean isMe, boolean isRead) {
         this.text = text;
         this.time = time;
@@ -28,5 +31,21 @@ public class MessageMockDTO {
 
     public boolean isRead() {
         return isRead;
+    }
+
+    public void setText(String text) {
+        this.text = text;
+    }
+
+    public void setTime(String time) {
+        this.time = time;
+    }
+
+    public void setMe(boolean me) {
+        isMe = me;
+    }
+
+    public void setRead(boolean read) {
+        isRead = read;
     }
 }

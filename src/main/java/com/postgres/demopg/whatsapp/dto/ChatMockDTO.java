@@ -1,6 +1,6 @@
 package com.postgres.demopg.whatsapp.dto;
 
-import java.util.List;
+import java.util.ArrayList;
 
 public class ChatMockDTO {
 
@@ -12,7 +12,10 @@ public class ChatMockDTO {
     private int unreadMessages;
     private boolean isPinned;
     private boolean isMuted;
-    private List<MessageMockDTO> messages;
+    private ArrayList<MessageMockDTO> messages;
+
+    public ChatMockDTO() {
+    }
 
     public ChatMockDTO(
             int id,
@@ -23,7 +26,7 @@ public class ChatMockDTO {
             int unreadMessages,
             boolean isPinned,
             boolean isMuted,
-            List<MessageMockDTO> messages
+            ArrayList<MessageMockDTO> messages
     ) {
         this.id = id;
         this.name = name;
@@ -68,7 +71,23 @@ public class ChatMockDTO {
         return isMuted;
     }
 
-    public List<MessageMockDTO> getMessages() {
+    public ArrayList<MessageMockDTO> getMessages() {
         return messages;
+    }
+
+    public void setLastMessage(String lastMessage) {
+        this.lastMessage = lastMessage;
+    }
+
+    public void setTime(String time) {
+        this.time = time;
+    }
+
+    public void setUnreadMessages(int unreadMessages) {
+        this.unreadMessages = unreadMessages;
+    }
+
+    public void setMessages(ArrayList<MessageMockDTO> messages) {
+        this.messages = messages;
     }
 }
