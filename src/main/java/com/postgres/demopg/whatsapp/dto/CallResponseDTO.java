@@ -1,19 +1,27 @@
 package com.postgres.demopg.whatsapp.dto;
 
-public class CallMockDTO {
+import com.postgres.demopg.whatsapp.entity.WhatsAppCall;
 
+public class CallResponseDTO {
+
+    private Long id;
     private String name;
     private String avatar;
     private String time;
     private String type;
     private boolean isVideoCall;
 
-    public CallMockDTO(String name, String avatar, String time, String type, boolean isVideoCall) {
-        this.name = name;
-        this.avatar = avatar;
-        this.time = time;
-        this.type = type;
-        this.isVideoCall = isVideoCall;
+    public CallResponseDTO(WhatsAppCall call) {
+        this.id = call.getId();
+        this.name = call.getName();
+        this.avatar = call.getAvatar();
+        this.time = call.getTime();
+        this.type = call.getType();
+        this.isVideoCall = call.isVideoCall();
+    }
+
+    public Long getId() {
+        return id;
     }
 
     public String getName() {

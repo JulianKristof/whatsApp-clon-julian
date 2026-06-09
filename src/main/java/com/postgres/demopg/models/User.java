@@ -1,91 +1,126 @@
 package com.postgres.demopg.models;
 
-import java.util.HashSet;
-import java.util.Set;
-
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 
 @Entity
-@Table( name = "users", 
-        uniqueConstraints = { 
-          @UniqueConstraint(columnNames = "username"),
-          @UniqueConstraint(columnNames = "email") 
-        })
+@Table(
+        name = "users",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = "username"),
+                @UniqueConstraint(columnNames = "email")
+        }
+)
 public class User {
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
-  private Long id;
 
-  @NotBlank
-  @Size(max = 20)
-  private String username;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-  @NotBlank
-  @Size(max = 50)
-  @Email
-  private String email;
+    private String username;
 
-  @NotBlank
-  @Size(max = 120)
-  private String password;
+    private String email;
 
-  @ManyToMany(fetch = FetchType.LAZY)
-  @JoinTable(name = "user_roles", 
-             joinColumns = @JoinColumn(name = "user_id"), 
-             inverseJoinColumns = @JoinColumn(name = "role_id"))
-  private Set<Role> roles = new HashSet<>();
+    private String password;
 
-  public User() {
-  }
+    private String name;
 
-  public User(String username, String email, String password) {
-    this.username = username;
-    this.email = email;
-    this.password = password;
-  }
+    private String avatar;
 
-  // Getters and Setters
+    private boolean online;
 
-  public Long getId() {
-    return id;
-  }
+    private String lastSeen;
 
-  public void setId(Long id) {
-    this.id = id;
-  }
+    @Column(columnDefinition = "TEXT")
+    private String profileImageBase64;
 
-  public String getUsername() {
-    return username;
-  }
+    private String profileImageMimeType;
 
-  public void setUsername(String username) {
-    this.username = username;
-  }
+    public User() {
+    }
 
-  public String getPassword() {
-    return password;
-  }
+    public User(String username, String email, String password, String name, String avatar) {
+        this.username = username;
+        this.email = email;
+        this.password = password;
+        this.name = name;
+        this.avatar = avatar;
+        this.online = false;
+        this.lastSeen = "Sin actividad reciente";
+    }
 
-  public void setPassword(String password) {
-    this.password = password;
-  }
+    public Long getId() {
+        return id;
+    }
 
-  public String getEmail() {
-    return email;
-  }
+    public String getUsername() {
+        return username;
+    }
 
-  public void setEmail(String email) {
-    this.email = email;
-  }
+    public String getEmail() {
+        return email;
+    }
 
-  public Set<Role> getRoles() {
-    return roles;
-  }
+    public String getPassword() {
+        return password;
+    }
 
-  public void setRoles(Set<Role> roles) {
-    this.roles = roles;
-  }
+    public String getName() {
+        return name;
+    }
+
+    public String getAvatar() {
+        return avatar;
+    }
+
+    public boolean isOnline() {
+        return online;
+    }
+
+    public String getLastSeen() {
+        return lastSeen;
+    }
+
+    public String getProfileImageBase64() {
+        return profileImageBase64;
+    }
+
+    public String getProfileImageMimeType() {
+        return profileImageMimeType;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setAvatar(String avatar) {
+        this.avatar = avatar;
+    }
+
+    public void setOnline(boolean online) {
+        this.online = online;
+    }
+
+    public void setLastSeen(String lastSeen) {
+        this.lastSeen = lastSeen;
+    }
+
+    public void setProfileImageBase64(String profileImageBase64) {
+        this.profileImageBase64 = profileImageBase64;
+    }
+
+    public void setProfileImageMimeType(String profileImageMimeType) {
+        this.profileImageMimeType = profileImageMimeType;
+    }
 }

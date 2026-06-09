@@ -1,16 +1,5 @@
 package com.postgres.demopg.services;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-
-import com.postgres.demopg.factory.RoleAssignmentFactory;
 import com.postgres.demopg.models.User;
 import com.postgres.demopg.payload.request.LoginRequest;
 import com.postgres.demopg.payload.request.SignupRequest;
@@ -19,10 +8,18 @@ import com.postgres.demopg.payload.response.MessageResponse;
 import com.postgres.demopg.repository.UserRepository;
 import com.postgres.demopg.security.jwt.JwtUtils;
 import com.postgres.demopg.security.services.UserDetailsImpl;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
 
-/**
- * Application service for authentication and registration flows.
- */
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 @Service
 public class AuthService {
 
@@ -30,58 +27,129 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder encoder;
     private final JwtUtils jwtUtils;
-    private final RoleAssignmentFactory roleAssignmentFactory;
 
+    @Autowired
     public AuthService(
             AuthenticationManager authenticationManager,
             UserRepository userRepository,
             PasswordEncoder encoder,
-            JwtUtils jwtUtils,
-            RoleAssignmentFactory roleAssignmentFactory) {
+            JwtUtils jwtUtils
+    ) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.encoder = encoder;
         this.jwtUtils = jwtUtils;
-        this.roleAssignmentFactory = roleAssignmentFactory;
     }
 
-    public JwtResponse authenticateUser(LoginRequest loginRequest) {
+    public ResponseEntity<?> authenticateUser(LoginRequest loginRequest) {
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
+                new UsernamePasswordAuthenticationToken(
+                        loginRequest.getUsername(),
+                        loginRequest.getPassword()
+                )
+        );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
+
         String jwt = jwtUtils.generateJwtToken(authentication);
 
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(item -> item.getAuthority())
-                .collect(Collectors.toList());
 
-        return new JwtResponse(
-                jwt,
-                userDetails.getId(),
-                userDetails.getUsername(),
-                userDetails.getEmail(),
-                roles);
+        User user = userRepository.findByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        user.setOnline(true);
+        user.setLastSeen("en línea");
+        userRepository.save(user);
+
+        return ResponseEntity.ok(
+                new JwtResponse(
+                        jwt,
+                        user.getId(),
+                        user.getUsername(),
+                        user.getEmail(),
+                        user.getName(),
+                        user.getAvatar(),
+                        user.isOnline(),
+                        user.getLastSeen()
+                )
+        );
     }
 
-    public MessageResponse registerUser(SignupRequest signUpRequest) {
+    public ResponseEntity<?> registerUser(SignupRequest signUpRequest) {
+        if (signUpRequest.getUsername() == null || signUpRequest.getUsername().trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("El username es obligatorio"));
+        }
+
+        if (signUpRequest.getEmail() == null || signUpRequest.getEmail().trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("El email es obligatorio"));
+        }
+
+        if (signUpRequest.getPassword() == null || signUpRequest.getPassword().trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("La contraseña es obligatoria"));
+        }
+
         if (userRepository.existsByUsername(signUpRequest.getUsername())) {
-            throw new IllegalArgumentException("Error: Username is already taken!");
+            return ResponseEntity.badRequest().body(new MessageResponse("Ese username ya existe"));
         }
 
         if (userRepository.existsByEmail(signUpRequest.getEmail())) {
-            throw new IllegalArgumentException("Error: Email is already in use!");
+            return ResponseEntity.badRequest().body(new MessageResponse("Ese email ya existe"));
+        }
+
+        String name = signUpRequest.getName();
+
+        if (name == null || name.trim().isEmpty()) {
+            name = signUpRequest.getUsername();
+        }
+
+        String avatar = signUpRequest.getAvatar();
+
+        if (avatar == null || avatar.trim().isEmpty()) {
+            avatar = name.substring(0, 1).toUpperCase();
         }
 
         User user = new User(
-                signUpRequest.getUsername(),
-                signUpRequest.getEmail(),
-                encoder.encode(signUpRequest.getPassword()));
+                signUpRequest.getUsername().trim(),
+                signUpRequest.getEmail().trim(),
+                encoder.encode(signUpRequest.getPassword()),
+                name.trim(),
+                avatar.trim()
+        );
 
-        user.setRoles(roleAssignmentFactory.resolveRoles(signUpRequest.getRole()));
+        user.setOnline(false);
+        user.setLastSeen("Sin actividad reciente");
+
         userRepository.save(user);
 
-        return new MessageResponse("User registered successfully!");
+        return ResponseEntity.ok(new MessageResponse("Usuario registrado correctamente"));
+    }
+
+    public ResponseEntity<?> logout(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserDetailsImpl)) {
+            return ResponseEntity.status(401).body(new MessageResponse("No autenticado"));
+        }
+
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+
+        User user = userRepository.findByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        user.setOnline(false);
+        user.setLastSeen(getCurrentLastSeen());
+        userRepository.save(user);
+
+        return ResponseEntity.ok(new MessageResponse("Sesión cerrada correctamente"));
+    }
+
+    private String getCurrentLastSeen() {
+        LocalDateTime now = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("'últ. vez hoy a las' h:mm a");
+
+        String formatted = now.format(formatter)
+                .replace("AM", "a. m.")
+                .replace("PM", "p. m.");
+
+        return formatted;
     }
 }

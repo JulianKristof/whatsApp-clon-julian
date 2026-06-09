@@ -1,16 +1,16 @@
 package com.postgres.demopg.whatsapp.dto;
 
-public class SendMessageRequest {
+public class CreateStatusRequest {
 
-    private String text;
+    private String content;
     private String imageBase64;
     private String imageMimeType;
 
-    public SendMessageRequest() {
+    public CreateStatusRequest() {
     }
 
-    public String getText() {
-        return text;
+    public String getContent() {
+        return content;
     }
 
     public String getImageBase64() {
@@ -21,8 +21,8 @@ public class SendMessageRequest {
         return imageMimeType;
     }
 
-    public void setText(String text) {
-        this.text = text;
+    public void setContent(String content) {
+        this.content = content;
     }
 
     public void setImageBase64(String imageBase64) {

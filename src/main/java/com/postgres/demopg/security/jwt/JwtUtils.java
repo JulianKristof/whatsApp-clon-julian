@@ -1,67 +1,141 @@
-package com.postgres.demopg.security.jwt; // <--- CORREGIDO
+package com.postgres.demopg.security.jwt;
 
-import java.security.Key;
-import java.util.Date;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.postgres.demopg.security.services.UserDetailsImpl;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
-// Import de tu propio UserDetailsImpl
-import com.postgres.demopg.security.services.UserDetailsImpl; // <--- CORREGIDO
-
-import io.jsonwebtoken.*;
-import io.jsonwebtoken.io.Decoders;
-import io.jsonwebtoken.security.Keys;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 @Component
 public class JwtUtils {
-  private static final Logger logger = LoggerFactory.getLogger(JwtUtils.class);
 
-  // Estas variables las leerá de tu application.properties
-  @Value("${bezkoder.app.jwtSecret}")
-  private String jwtSecret;
+    @Value("${bezkoder.app.jwtSecret}")
+    private String jwtSecret;
 
-  @Value("${bezkoder.app.jwtExpirationMs}")
-  private int jwtExpirationMs;
+    @Value("${bezkoder.app.jwtExpirationMs}")
+    private int jwtExpirationMs;
 
-  public String generateJwtToken(Authentication authentication) {
+    public String generateJwtToken(Authentication authentication) {
+        UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
 
-    UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
+        long now = System.currentTimeMillis();
+        long exp = now + jwtExpirationMs;
 
-    return Jwts.builder()
-        .setSubject((userPrincipal.getUsername()))
-        .setIssuedAt(new Date())
-        .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
-        .signWith(key(), SignatureAlgorithm.HS256)
-        .compact();
-  }
-  
-  private Key key() {
-    return Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
-  }
+        String header = "{\"alg\":\"HS256\",\"typ\":\"JWT\"}";
+        String payload = "{\"sub\":\"" + userPrincipal.getUsername() + "\",\"exp\":" + exp + "}";
 
-  public String getUserNameFromJwtToken(String token) {
-    return Jwts.parserBuilder().setSigningKey(key()).build()
-               .parseClaimsJws(token).getBody().getSubject();
-  }
+        String encodedHeader = base64UrlEncode(header);
+        String encodedPayload = base64UrlEncode(payload);
 
-  public boolean validateJwtToken(String authToken) {
-    try {
-      Jwts.parserBuilder().setSigningKey(key()).build().parse(authToken);
-      return true;
-    } catch (MalformedJwtException e) {
-      logger.error("Invalid JWT token: {}", e.getMessage());
-    } catch (ExpiredJwtException e) {
-      logger.error("JWT token is expired: {}", e.getMessage());
-    } catch (UnsupportedJwtException e) {
-      logger.error("JWT token is unsupported: {}", e.getMessage());
-    } catch (IllegalArgumentException e) {
-      logger.error("JWT claims string is empty: {}", e.getMessage());
+        String unsignedToken = encodedHeader + "." + encodedPayload;
+        String signature = sign(unsignedToken);
+
+        return unsignedToken + "." + signature;
     }
 
-    return false;
-  }
+    public String getUserNameFromJwtToken(String token) {
+        try {
+            String[] parts = token.split("\\.");
+
+            if (parts.length != 3) {
+                return null;
+            }
+
+            String payloadJson = new String(
+                    Base64.getUrlDecoder().decode(parts[1]),
+                    StandardCharsets.UTF_8
+            );
+
+            String marker = "\"sub\":\"";
+            int start = payloadJson.indexOf(marker);
+
+            if (start == -1) {
+                return null;
+            }
+
+            start += marker.length();
+            int end = payloadJson.indexOf("\"", start);
+
+            if (end == -1) {
+                return null;
+            }
+
+            return payloadJson.substring(start, end);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public boolean validateJwtToken(String authToken) {
+        try {
+            String[] parts = authToken.split("\\.");
+
+            if (parts.length != 3) {
+                return false;
+            }
+
+            String unsignedToken = parts[0] + "." + parts[1];
+            String expectedSignature = sign(unsignedToken);
+
+            if (!expectedSignature.equals(parts[2])) {
+                return false;
+            }
+
+            String payloadJson = new String(
+                    Base64.getUrlDecoder().decode(parts[1]),
+                    StandardCharsets.UTF_8
+            );
+
+            String marker = "\"exp\":";
+            int start = payloadJson.indexOf(marker);
+
+            if (start == -1) {
+                return false;
+            }
+
+            start += marker.length();
+
+            int end = payloadJson.indexOf("}", start);
+
+            if (end == -1) {
+                return false;
+            }
+
+            long exp = Long.parseLong(payloadJson.substring(start, end).trim());
+
+            return System.currentTimeMillis() <= exp;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private String base64UrlEncode(String value) {
+        return Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String sign(String data) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            SecretKeySpec secretKeySpec = new SecretKeySpec(
+                    jwtSecret.getBytes(StandardCharsets.UTF_8),
+                    "HmacSHA256"
+            );
+
+            mac.init(secretKeySpec);
+
+            byte[] signatureBytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+
+            return Base64.getUrlEncoder()
+                    .withoutPadding()
+                    .encodeToString(signatureBytes);
+        } catch (Exception e) {
+            throw new RuntimeException("Error al firmar token", e);
+        }
+    }
 }
